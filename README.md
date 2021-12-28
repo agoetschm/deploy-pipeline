@@ -46,12 +46,20 @@ docker compose exec jenkins jenkins-plugin-cli --plugins gitea branch-api workfl
 - new item, organization folder
   - repository source: gitea
   - owner `lt`
+  - add token again
 - check that the gitea org scan sees the ingest repo
+- half soved issue: to run the jenkins job in a docker container, docker need to be available in the jenkins image
+  - https://stackoverflow.com/questions/47854463/docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socke
+  - https://forums.docker.com/t/docker-client-installed-in-a-docker-container-cant-access-docker-host/22679
 
-
-https://forums.docker.com/t/docker-client-installed-in-a-docker-container-cant-access-docker-host/22679
 
 ### nexus
+
+- `http://localhost:8081/`
+- `docker-compose exec nexus cat /nexus-data/admin.password`
+- set `password` as password
+- admin, repositories, create repo, helm hosted
+  - name: `helm-hosted`
 
 pip3 install nexus3-cli
 nexus3 login -U http://localhost:8081 -u admin -p $(cat persistence/nexus/admin.password) --x509_verify
