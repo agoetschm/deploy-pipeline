@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  git:
+    image: gitea/gitea:1.15.7
+    container_name: gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - INSTALL_LOCK=true
+    restart: always
+    volumes:
+      - ./persistence/gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+      - "222:22"
+
+  nexus:
+    image: sonatype/nexus3:3.37.0
+    container_name: nexus
+    volumes:
+      - ./persistence/nexus:/nexus-data
+    ports:
+      - "8081:8081"
+
+  jenkins:
+    # image: trion/jenkins-docker-client:latest
+    build: ./jenkins
+    container_name: jenkins
+    user: root # TODO I guess not so safe
+    privileged: true
+    # environment:
+    #   - JENKINS_USER=502 # TODO
+    ports:
+      - 8080:8080
+      - 50000:50000
+    volumes:
+      - ./persistence/jenkins:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
