@@ -1,5 +1,11 @@
 # Local CI/CD setup
 
+The idea here is to set up in docker the necessary services to automate the deployment of Helm charts to Kubernetes.
+
+The current possible flow is: 
+- create a git repository with a helm chart
+- run a Jenkins job which publishes the chart on a Nexus Helm repository
+
 ### gitea
 
 ```
@@ -8,7 +14,7 @@ docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user create --usern
 docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user create --username jenkins --password password --email jenkins@example.com --access-token' # keep this access token somewhere
 ```
 
-- `localhost:3000`
+- `http://localhost:3000`
 - create org `lt`
 - create repo `ingest` with owner `lt`
 - create team `ci` in `lt`
@@ -17,6 +23,7 @@ docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user create --usern
 
 ```
 cd git; mkdir ingest; cd ingest; cp ../../Jenkinsfile .
+mkdir charts; cd charts; helm create ingest; cd ..
 git init
 git add .
 git commit -m "first commit"
@@ -25,6 +32,28 @@ git push -u origin master
 ```
 
 `docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user delete --username developer'`
+
+
+### nexus
+
+- `docker-compose up git`
+- `http://localhost:8081/`
+- `docker-compose exec nexus cat /nexus-data/admin.password`
+- set `password` as password
+- admin, repositories, create repo, helm hosted
+  - name: `helm-hosted`
+
+pip3 install nexus3-cli
+nexus3 login -U http://localhost:8081 -u admin -p $(cat persistence/nexus/admin.password) --x509_verify
+- this cli is not official and doesn't seem to work with the latest version
+- needs https://support.sonatype.com/hc/en-us/articles/360045220393-Scripting-Nexus-Repository-Manager-3#how-to-enable
+-  but it doesn't support creating helm repos...
+- so for it's easier to configure via the ui
+  - add helm-hosted repo
+  - helm repo add nexus http://localhost:8081/repository/helm-hosted --username admin --password password
+
+https://help.sonatype.com/repomanager3/nexus-repository-administration/formats/helm-repositories
+
 
 ### jenkins
 
@@ -52,22 +81,10 @@ docker compose exec jenkins jenkins-plugin-cli --plugins gitea branch-api workfl
   - https://stackoverflow.com/questions/47854463/docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socke
   - https://forums.docker.com/t/docker-client-installed-in-a-docker-container-cant-access-docker-host/22679
 
+### kind (Kubernetes in Docker)
 
-### nexus
+- https://kind.sigs.k8s.io/docs/user/quick-start/
 
-- `http://localhost:8081/`
-- `docker-compose exec nexus cat /nexus-data/admin.password`
-- set `password` as password
-- admin, repositories, create repo, helm hosted
-  - name: `helm-hosted`
+### fluxcd
 
-pip3 install nexus3-cli
-nexus3 login -U http://localhost:8081 -u admin -p $(cat persistence/nexus/admin.password) --x509_verify
-- this cli is not official and doesn't seem to work with the latest version
-- needs https://support.sonatype.com/hc/en-us/articles/360045220393-Scripting-Nexus-Repository-Manager-3#how-to-enable
--  but it doesn't support creating helm repos...
-- so for it's easier to configure via the ui
-  - add helm-hosted repo
-  - helm repo add nexus http://localhost:8081/repository/helm-hosted --username admin --password password
-
-https://help.sonatype.com/repomanager3/nexus-repository-administration/formats/helm-repositories
+- https://fluxcd.io/docs/get-started/
