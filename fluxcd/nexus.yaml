@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: nexus
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: http://kubernetes.docker.internal:8081/repository/helm-hosted/

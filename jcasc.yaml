@@ -1,0 +1,16 @@
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "password"
+  authorizationStrategy: loggedInUsersCanDoAnything
+
+# unclassified:
+#   giteaServers:
+#     servers:
+#     - credentialsId: <my-credential-id>
+#       displayName: scm
+#       manageHooks: true
+#       serverUrl: https://my-scm-url

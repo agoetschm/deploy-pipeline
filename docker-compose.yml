@@ -15,7 +15,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "3000:3000"
-      - "222:22"
+      - "22:22" # can conflict with a local ssh server
 
   nexus:
     image: sonatype/nexus3:3.37.0
@@ -26,12 +26,12 @@ services:
       - "8081:8081"
 
   jenkins:
-    # image: trion/jenkins-docker-client:latest
     build: ./jenkins
     container_name: jenkins
-    user: root # TODO I guess not so safe
-    privileged: true
-    # environment:
+    # user: root # TODO I guess not so safe
+    # privileged: true
+    environment:
+      - CASC_JENKINS_CONFIG=/var/config/jcasc.yaml
     #   - JENKINS_USER=502 # TODO
     ports:
       - 8080:8080
@@ -39,3 +39,4 @@ services:
     volumes:
       - ./persistence/jenkins:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./jcasc.yaml:/var/config/jcasc.yaml
