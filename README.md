@@ -7,7 +7,9 @@ The current possible flow is:
 - run a Jenkins job which publishes the chart on a Nexus Helm repository
 - deploy this chart to Kubernetes with FluxCD
 
-The following steps aim to be reproducible. Nevertheless they depend on the current version of the tools being used, thus they should serve more as inspiration than as an exact recipe.
+Warning: the following steps aim to be reproducible. Nevertheless they depend on the current version of the tools being used, thus they should serve more as inspiration than as an exact recipe.
+
+Other warning: since this is a local setup for experimentation, security is a secondary concern and has been put aside for now. Do not try to use as it is for any actual project!
 
 ### gitea
 
