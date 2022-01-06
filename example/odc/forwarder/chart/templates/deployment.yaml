@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forwarder
+  labels:
+    app: forwarder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forwarder
+  template:
+    metadata:
+      labels:
+        app: forwarder
+    spec:
+      containers:
+      - name: forwarder
+        image: busybox:{{ .Values.version }}
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c', 'while true; do echo {{ .Values.message }} ; sleep 2; done']

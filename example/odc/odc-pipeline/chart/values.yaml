@@ -1,0 +1,9 @@
+ingest:
+  enabled: true
+  version: "1.34.0"
+converter:
+  enabled: true
+  version: "1.34.0"
+forwarder:
+  enabled: true
+  version: "1.34.0"

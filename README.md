@@ -25,17 +25,19 @@ docker-compose exec git sh -c 'gitea admin user create --username jenkins --pass
 - create repo `ingest` with owner `lt`
 - create team `ci` in `lt` with admin access
 - add user `jenkins` to team `ci`
-- add repo `ingest` to team `ci`
 
 ```
-mkdir git; cd git; mkdir ingest; cd ingest; cp ../../jenkins/Jenkinsfile .
-mkdir charts; cd charts; helm create ingest; cd ..
-git init; git add .; git commit -m "first commit"
-git remote add origin http://localhost:3000/lt/ingest.git
+SERVICE=ingest
+cp -r example/odc/$SERVICE git
+cd git/$SERVICE
+git init
+git remote add origin http://localhost:3000/lt/$SERVICE.git
+git add .
+git commit -m "initial commit"
 git push -u origin master
 ```
 
-The `ingest` repo now contains a `Jenkinsfile` describing a job to push its Helm chart to Nexus.
+The `ingest` repo now contains a `Jenkinsfile.release` describing a job to push its Helm chart to Nexus.
 
 In case you want to delete a user:
 `docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user delete --username developer'`
@@ -99,11 +101,25 @@ The `ingest` chart should be published to Nexus by this job.
 - check /etc/hosts for kubernetes.docker.internal
 ```
 cd git; git clone ssh://git@kubernetes.docker.internal:22/lt/flux # also adds to known hosts
-cd flux; cp ../../fluxcd/* .
-git add .; git commit -m "add nexus and ingest"; git push
+cd flux; cp ../../example/fluxcd/nexus.yaml .
+git add .; git commit -m "add nexus"; git push
 ```
 - create ssh key for flux
   - `mkdir ssh; cd ssh; ssh-keygen -t ed25519 -f key`
   - add `cat key.pub` to gitea `developer` user
 - `flux bootstrap git --url=ssh://git@kubernetes.docker.internal:22/lt/flux --private-key-file=ssh/key --branch=master`
   - `flux get kustomizations --watch` to monitor progress
+
+
+### Fake ODC pipeline
+
+Let the pipeline for this PoC consist of: `ingest`, `converter`, `forwarder`.
+
+```
+# cf command in gitea section to create the service repos
+# SERVICE=forwarder
+# SERVICE=converter
+```
+
+- same for the repository containing the pipeline chart: `SERVICE=odc-pipeline`
+- add the `HelmRelease` for the pipeline

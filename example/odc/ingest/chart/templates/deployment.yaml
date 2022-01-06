@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  labels:
+    app: ingest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingest
+  template:
+    metadata:
+      labels:
+        app: ingest
+    spec:
+      containers:
+      - name: ingest
+        image: busybox:{{ .Values.version }}
+        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c', 'while true; do echo {{ .Values.message }} ; sleep 2; done']
