@@ -1,0 +1,55 @@
+pipeline {
+    agent {
+        docker {
+            image 'jenkinsagent'
+            // TODO fix the network situation here
+            args '--net=deploy-pipeline_default -u root'
+        }
+    }
+    stages {
+        stage('Update dependencies') {
+            steps {
+                sh '''
+                git checkout master
+                git branch -u origin/master
+                git reset --hard origin/master
+
+                helm repo add helm-hosted http://nexus:8081/repository/helm-hosted/ --username=admin --password=password
+                helm repo update
+
+                DEPS=$(helm show chart chart | yq e '.dependencies.[].name' -)
+                for DEP in $DEPS
+                do
+                CURRENT_VERSION=$(helm show chart chart | yq e ".dependencies.[] | select(.name == \\"$DEP\\") | .version" -)
+                LATEST_VERSION=$(helm search repo --regexp "helm-hosted/$DEP" -o yaml | yq e '.[0].version' -)
+                if [[ "$LATEST_VERSION" > "$CURRENT_VERSION" ]]; then
+                    sed -i -e ':a' -e 'N' -e '$!ba' -e "s/\\(name:[[:space:]]*${DEP}[[:space:]]*\\n[[:space:]]*version:[[:space:]]*\\)[0-9.]*/\\1${LATEST_VERSION}/" chart/Chart.yaml
+                fi
+                done
+
+                git branch -D depsupdate
+                git checkout -b depsupdate
+                git add .
+                GIT_COMMITTER_NAME='Jenkins' GIT_COMMITTER_EMAIL='jenkins@example.com' git commit -m "Update subcharts" --author="Jenkins <jenkins@example.com>"
+                git push -uf http://developer:password@gitea:3000/lt/pipeline depsupdate
+                '''
+            }
+        }
+        stage('Create pull request') {
+            steps {
+                sh '''
+                curl -u developer:password -X 'POST' \
+                'http://gitea:3000/api/v1/repos/lt/pipeline/pulls' \
+                -H 'accept: application/json' \
+                -H 'Content-Type: application/json' \
+                -d '{
+                "base": "master",
+                "body": "Update subchart versions to latest available",
+                "head": "depsupdate",
+                "title": "Update subcharts"
+                }'
+                '''
+            }
+        }
+    }
+}

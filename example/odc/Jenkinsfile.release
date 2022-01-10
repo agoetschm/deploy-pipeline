@@ -19,10 +19,16 @@ pipeline {
                 VERSION=$(cat chart/Chart.yaml | grep '^version:' | grep -Eo '[0-9]+\\.[0-9]+\\.[0-9]+')
                 INDEX_TO_UPDATE=$(case $RELEASE_MODE in 'patch') echo '3';; 'minor') echo '2';; 'major') echo '1';; esac)
                 BUMPED_VERSION=$(echo $VERSION | awk -vFS=. -vOFS=. "{\\$$INDEX_TO_UPDATE++;print}")
+                if [ "$INDEX_TO_UPDATE" -lt '3' ]; then
+                    BUMPED_VERSION=$(echo $BUMPED_VERSION | awk -vFS=. -vOFS=. '{$3=0;print}')
+                fi
+                if [ "$INDEX_TO_UPDATE" -lt '2' ]; then
+                    BUMPED_VERSION=$(echo $BUMPED_VERSION | awk -vFS=. -vOFS=. '{$2=0;print}')
+                fi
                 cat chart/Chart.yaml | sed -E "s/^version: .+$/version: $BUMPED_VERSION/" | tee chart/Chart.yaml
                 git add .
                 GIT_COMMITTER_NAME='Jenkins' GIT_COMMITTER_EMAIL='jenkins@example.com' git commit -m "Update version to $BUMPED_VERSION" --author="Jenkins <jenkins@example.com>"
-                git push http://developer:password@git:3000/lt/converter
+                git push http://jenkins:jenkins@gitea:3000/lt/REPOSITORY_PLACEHOLDER
                 '''
                 script {
                     lastCommit = sh (script:'git rev-parse HEAD', returnStdout: true).trim()
@@ -32,13 +38,19 @@ pipeline {
         stage('Package chart') {
             agent {
                 docker { 
-                    image 'alpine/helm:3.7.2' 
-                    args '-it --entrypoint=' // hack to keep the container running
+                    image 'alpine/helm:3.7.2'
+                    // TODO fix the network situation here
+                    args '-it -u root --net=deploy-pipeline_default --entrypoint=' // hack to keep the container running
                 }
             }
             steps {
                 echo 'Packaging...'
                 sh "git checkout -f ${lastCommit}"
+                sh '''
+                helm repo add helm-hosted http://nexus:8081/repository/helm-hosted/ --username=admin --password=admin
+                helm repo update
+                helm dependency update chart
+                '''
                 sh 'helm package chart -d chart_out'
             }
         }
@@ -49,9 +61,10 @@ pipeline {
                 // TODO remove credentials from here
                 sh '''
                 CHART_FILE=$(find chart_out -name "*.tgz")
-                curl -u admin:password http://nexus:8081/repository/helm-hosted/ --upload-file ${CHART_FILE} -v
+                curl -u admin:admin http://nexus:8081/repository/helm-hosted/ --upload-file ${CHART_FILE} -v
                 '''
-                sh 'rm -r chart_out'
+                sh 'rm -rf chart_out'
+                sh 'rm -rf chart/charts'
             }
         }
     }

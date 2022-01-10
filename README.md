@@ -1,91 +1,91 @@
-# Local CI/CD setup
+# Dockerized CI/CD
 
 The idea here is to set up in docker the necessary services to automate the deployment of Helm charts to Kubernetes.
 
-The current possible flow is: 
-- create a git repository with a helm chart
-- run a Jenkins job which publishes the chart on a Nexus Helm repository
-- deploy this chart to Kubernetes with FluxCD
+The current possible flow is:
+- create some git repositories with their helm chart
+- run a Jenkins job which publishes the charts on a Nexus Helm repository
+- deploy these charts to Kubernetes with FluxCD
+
+## Setup
 
 Warning: the following steps aim to be reproducible. Nevertheless they depend on the current version of the tools being used, thus they should serve more as inspiration than as an exact recipe.
 
-Other warning: since this is a local setup for experimentation, security is a secondary concern and has been put aside for now. Do not try to use as it is for any actual project!
+Other warning: since this is a local setup for experimentation, security is a secondary concern and has been put aside. Do not try to use as it is for any actual project!
+
+Required:
+- docker and docker-compose
+- gsed (GNU sed)
 
 ### gitea
 
 ```
-docker-compose up git
-docker-compose exec git sh -c 'gitea admin user create --username developer --password password --email dev@example.com --admin --must-change-password=false'
-docker-compose exec git sh -c 'gitea admin user create --username jenkins --password password --email jenkins@example.com --access-token' # keep this access token somewhere
+docker-compose up gitea
+docker-compose exec gitea sh -c 'gitea admin user create --username developer --password developer --email dev@example.com --admin --must-change-password=false'
+docker-compose exec gitea sh -c 'gitea admin user create --username jenkins --password jenkins --email jenkins@example.com --must-change-password=false'
 ```
 
 - `http://localhost:3000`
 - add your ssh key to user `developer` (`cat ~/.ssh/id_ed25519.pub`)
 - create org `lt`
-- create repo `ingest` with owner `lt`
+- create repos `ingest`, `converter`, `forwarder` and `pipeline` with owner `lt`
 - create team `ci` in `lt` with admin access
 - add user `jenkins` to team `ci`
+- add all repos to team `ci`
 
 ```
-SERVICE=ingest
-cp -r example/odc/$SERVICE git
-cd git/$SERVICE
-git init
-git remote add origin http://localhost:3000/lt/$SERVICE.git
-git add .
-git commit -m "initial commit"
-git push -u origin master
+ssh-keyscan localhost >> ~/.ssh/known_hosts
+mkdir -p git
+REPOS="ingest converter forwarder pipeline"
+for REPO in $(echo "$REPOS")
+do
+  cp -r example/odc/$REPO git
+  cp example/odc/Jenkinsfile.release git/$REPO
+  cd git/$REPO
+  gsed -i "s/REPOSITORY_PLACEHOLDER/$REPO/g" Jenkinsfile.release
+  git init
+  git remote add origin ssh://git@localhost:22/lt/$REPO.git
+  git add .
+  git commit -m "initial commit"
+  git push -uf origin master
+  cd ...
+done
 ```
 
-The `ingest` repo now contains a `Jenkinsfile.release` describing a job to push its Helm chart to Nexus.
+The `ingest` repo, for example, now contains a `Jenkinsfile.release` describing a job to push its Helm chart to Nexus.
 
 In case you want to delete a user:
-`docker exec $(docker ps -qf "name=gitea") sh -c 'gitea admin user delete --username developer'`
+`docker-compose exec gitea sh -c 'gitea admin user delete --username developer'`
 
 
 ### nexus
 
 - `docker-compose up nexus`
-- go to `http://localhost:8081/` and sign in
+- go to `http://localhost:8081/` and sign in as `admin`
   - `docker-compose exec nexus cat /nexus-data/admin.password`
-  - set `password` as password
+  - set `admin` as password
   - allow anonymous access, for fluxcd later
 - admin, repositories, create repo, helm hosted
   - name: `helm-hosted`
 
-
-
-pip3 install nexus3-cli
-nexus3 login -U http://localhost:8081 -u admin -p $(cat persistence/nexus/admin.password) --x509_verify
-- this cli is not official and doesn't seem to work with the latest version
-- needs https://support.sonatype.com/hc/en-us/articles/360045220393-Scripting-Nexus-Repository-Manager-3#how-to-enable
--  but it doesn't support creating helm repos...
-- so for it's easier to configure via the ui
-  - add helm-hosted repo
-  - helm repo add nexus http://localhost:8081/repository/helm-hosted --username admin --password password
-
-https://help.sonatype.com/repomanager3/nexus-repository-administration/formats/helm-repositories
-
-
 ### jenkins
 
-`https://plugins.jenkins.io/gitea/`
-
 - `docker-compose up jenkins`
-- `http://localhost:8080`, sign in with `admin:password`
+- `http://localhost:8080`, sign in with `admin:admin` and skip plugin installation
 - manage jenkins, configure system, add gitea server
-  - `http://git:3000`
+  - `http://gitea:3000`
   - manage hooks
-    - gitea personal access token
     - scope: system
-    - paste `jenkins` gitea user access token
+    - `jenkins:jenkins`
 - new item, organization folder
+  - name: `releases`
   - repository source: gitea
   - owner `lt`
-  - use jenkins user in gitea (TODO: user token)
-- check that the gitea org scan sees the ingest repo
+  - add credentials again
+  - pipeline jenkinsfile: `Jenkinsfile.release`
+- check that the gitea org scan sees the repos
 
-The `ingest` chart should be published to Nexus by this job.
+Triggering the `ingest` release should publish its chart to Nexus.
 
 ### kind (Kubernetes in Docker)
 
@@ -101,7 +101,7 @@ The `ingest` chart should be published to Nexus by this job.
 - check /etc/hosts for kubernetes.docker.internal
 ```
 cd git; git clone ssh://git@kubernetes.docker.internal:22/lt/flux # also adds to known hosts
-cd flux; cp ../../example/fluxcd/nexus.yaml .
+cd flux; cp ../../example/flux/nexus.yaml .
 git add .; git commit -m "add nexus"; git push
 ```
 - create ssh key for flux
@@ -111,15 +111,7 @@ git add .; git commit -m "add nexus"; git push
   - `flux get kustomizations --watch` to monitor progress
 
 
-### Fake ODC pipeline
+### Deploy pipeline on cluster
 
-Let the pipeline for this PoC consist of: `ingest`, `converter`, `forwarder`.
-
-```
-# cf command in gitea section to create the service repos
-# SERVICE=forwarder
-# SERVICE=converter
-```
-
-- same for the repository containing the pipeline chart: `SERVICE=odc-pipeline`
 - add the `HelmRelease` for the pipeline
+- `docker build --tag jenkinsagent jenkinsagent`

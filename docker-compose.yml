@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  git:
+  gitea:
     image: gitea/gitea:1.15.7
     container_name: gitea
     environment:
@@ -40,3 +40,5 @@ services:
       - ./persistence/jenkins:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - ./jcasc.yaml:/var/config/jcasc.yaml
+
+  

@@ -1,13 +1,14 @@
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 metadata:
-  name: odc-pipeline
+  name: pipeline
   namespace: default
 spec:
   interval: 10s
   chart:
     spec:
-      chart: odc-pipeline
+      chart: pipeline
+      version: latest
       sourceRef:
         kind: HelmRepository
         name: nexus
