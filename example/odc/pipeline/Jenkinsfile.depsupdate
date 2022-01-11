@@ -14,7 +14,7 @@ pipeline {
                 git branch -u origin/master
                 git reset --hard origin/master
 
-                helm repo add helm-hosted http://nexus:8081/repository/helm-hosted/ --username=admin --password=password
+                helm repo add helm-hosted http://nexus:8081/repository/helm-hosted/ --username=admin --password=admin
                 helm repo update
 
                 DEPS=$(helm show chart chart | yq e '.dependencies.[].name' -)
@@ -27,18 +27,18 @@ pipeline {
                 fi
                 done
 
-                git branch -D depsupdate
+                git branch -D depsupdate || true
                 git checkout -b depsupdate
                 git add .
                 GIT_COMMITTER_NAME='Jenkins' GIT_COMMITTER_EMAIL='jenkins@example.com' git commit -m "Update subcharts" --author="Jenkins <jenkins@example.com>"
-                git push -uf http://developer:password@gitea:3000/lt/pipeline depsupdate
+                git push -uf http://jenkins:jenkins@gitea:3000/lt/pipeline depsupdate
                 '''
             }
         }
         stage('Create pull request') {
             steps {
                 sh '''
-                curl -u developer:password -X 'POST' \
+                curl -u jenkins:jenkins -X 'POST' \
                 'http://gitea:3000/api/v1/repos/lt/pipeline/pulls' \
                 -H 'accept: application/json' \
                 -H 'Content-Type: application/json' \

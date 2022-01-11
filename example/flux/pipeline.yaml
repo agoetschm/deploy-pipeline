@@ -8,7 +8,6 @@ spec:
   chart:
     spec:
       chart: pipeline
-      version: latest
       sourceRef:
         kind: HelmRepository
         name: nexus

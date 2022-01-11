@@ -17,7 +17,7 @@ Required:
 - docker and docker-compose
 - gsed (GNU sed)
 
-### gitea
+### Gitea
 
 ```
 docker-compose up gitea
@@ -58,7 +58,7 @@ In case you want to delete a user:
 `docker-compose exec gitea sh -c 'gitea admin user delete --username developer'`
 
 
-### nexus
+### Nexus
 
 - `docker-compose up nexus`
 - go to `http://localhost:8081/` and sign in as `admin`
@@ -68,7 +68,7 @@ In case you want to delete a user:
 - admin, repositories, create repo, helm hosted
   - name: `helm-hosted`
 
-### jenkins
+### Jenkins
 
 - `docker-compose up jenkins`
 - `http://localhost:8080`, sign in with `admin:admin` and skip plugin installation
@@ -78,14 +78,14 @@ In case you want to delete a user:
     - scope: system
     - `jenkins:jenkins`
 - new item, organization folder
-  - name: `releases`
+  - name: `release`
   - repository source: gitea
   - owner `lt`
   - add credentials again
   - pipeline jenkinsfile: `Jenkinsfile.release`
 - check that the gitea org scan sees the repos
 
-Triggering the `ingest` release should publish its chart to Nexus.
+Triggering the `ingest` release should publish its chart to Nexus. Same for `converter` and `forwarder`.
 
 ### kind (Kubernetes in Docker)
 
@@ -93,25 +93,41 @@ Triggering the `ingest` release should publish its chart to Nexus.
 - `kind create cluster`
 - `watch kubectl get pods` to monitor the progress
 
-### fluxcd
+### FluxCD
 
 - https://fluxcd.io/docs/installation/
 - https://fluxcd.io/docs/get-started/
-- create flux repo on gitea with owner `lt` and initial readme (not empty)
-- check /etc/hosts for kubernetes.docker.internal
+- create `flux` repo on gitea with owner `lt`
 ```
-cd git; git clone ssh://git@kubernetes.docker.internal:22/lt/flux # also adds to known hosts
-cd flux; cp ../../example/flux/nexus.yaml .
-git add .; git commit -m "add nexus"; git push
+cp -r example/flux git
+cd git/flux
+git init
+git remote add origin ssh://git@localhost:22/lt/flux.git
+git add . ; git commit -m "initial commit"; git push -uf origin master
+cd ...
 ```
 - create ssh key for flux
   - `mkdir ssh; cd ssh; ssh-keygen -t ed25519 -f key`
   - add `cat key.pub` to gitea `developer` user
-- `flux bootstrap git --url=ssh://git@kubernetes.docker.internal:22/lt/flux --private-key-file=ssh/key --branch=master`
+- bootstrap flux
+  - check /etc/hosts for kubernetes.docker.internal
+  - `ssh-keyscan kubernetes.docker.internal >> ~/.ssh/known_hosts`
+  - `flux bootstrap git --url=ssh://git@kubernetes.docker.internal:22/lt/flux --private-key-file=ssh/key --branch=master`
   - `flux get kustomizations --watch` to monitor progress
 
+You should now see the Nexus `HelmRepository` as `READY` when checking `kubectl get HelmRepository -n flux-system`.
 
 ### Deploy pipeline on cluster
 
-- add the `HelmRelease` for the pipeline
+For this step the `pipeline` chart needs to be released.
+
+- add another organization folder `subcharts update` (similar to `release`) targetting pipeline files `Jenkinsfile.depsupdate`
+- the Jenkins job should run after the scan and create a pull request 
+- merge the pull request in Gitea
+- run the release job for the `pipeline`
+- the `pipeline` `HelmRelease` in the `flux` repo deploy the latest version of the chart to Kubernetes (`kubectl get HelmRelease`)
+
+You should now see pods running when checking `kubectl get pods`.
+
+
 - `docker build --tag jenkinsagent jenkinsagent`

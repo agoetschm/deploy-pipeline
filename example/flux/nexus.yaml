@@ -4,5 +4,5 @@ metadata:
   name: nexus
   namespace: flux-system
 spec:
-  interval: 1m
+  interval: 10s
   url: http://kubernetes.docker.internal:8081/repository/helm-hosted/
