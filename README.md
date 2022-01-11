@@ -16,6 +16,8 @@ Other warning: since this is a local setup for experimentation, security is a se
 Required:
 - docker and docker-compose
 - gsed (GNU sed)
+- kind
+- fluxcd
 
 ### Gitea
 
@@ -71,6 +73,8 @@ In case you want to delete a user:
 ### Jenkins
 
 - `docker-compose up jenkins`
+- build an image with the necessary tools to run the jobs
+  - `docker build --tag jenkinsagent jenkinsagent`
 - `http://localhost:8080`, sign in with `admin:admin` and skip plugin installation
 - manage jenkins, configure system, add gitea server
   - `http://gitea:3000`
@@ -128,6 +132,3 @@ For this step the `pipeline` chart needs to be released.
 - the `pipeline` `HelmRelease` in the `flux` repo deploy the latest version of the chart to Kubernetes (`kubectl get HelmRelease`)
 
 You should now see pods running when checking `kubectl get pods`.
-
-
-- `docker build --tag jenkinsagent jenkinsagent`
